@@ -36,18 +36,31 @@ class ApiClient {
       throw new Error(`Connection error: ${err.message || 'Unable to reach NAVORA API server'}`);
     }
 
+    const text = await response.text();
+
     if (!response.ok) {
-      let message = 'An error occurred';
-      try {
-        const errorData = await response.json();
-        message = errorData.detail || errorData.message || message;
-      } catch {
-        message = await response.text();
+      let message = '';
+      if (text) {
+        try {
+          const errorData = JSON.parse(text);
+          if (typeof errorData.detail === 'string') {
+            message = errorData.detail;
+          } else if (Array.isArray(errorData.detail)) {
+            message = errorData.detail.map((e: any) => e.msg || (typeof e === 'string' ? e : JSON.stringify(e))).join(', ');
+          } else if (typeof errorData.message === 'string') {
+            message = errorData.message;
+          } else if (typeof errorData.detail === 'object' && errorData.detail !== null) {
+            message = JSON.stringify(errorData.detail);
+          } else {
+            message = text;
+          }
+        } catch {
+          message = text;
+        }
       }
       throw new Error(message || `Request failed with status ${response.status}`);
     }
 
-    const text = await response.text();
     if (!text) return {} as T;
 
     try {
