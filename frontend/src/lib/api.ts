@@ -32,8 +32,13 @@ class ApiClient {
     try {
       response = await fetch(`${API_BASE}${endpoint}`, config);
     } catch (err: any) {
-      // If endpoint is relative or network fails
-      throw new Error(`Connection error: ${err.message || 'Unable to reach NAVORA API server'}`);
+      // Automatic retry for backend cold starts (Render free tier)
+      try {
+        await new Promise((res) => setTimeout(res, 2000));
+        response = await fetch(`${API_BASE}${endpoint}`, config);
+      } catch (retryErr: any) {
+        throw new Error(`Connection error: Unable to reach NAVORA API server (${retryErr.message || err.message || 'Server waking up'}). Please try again in a few seconds.`);
+      }
     }
 
     const text = await response.text();
