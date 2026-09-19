@@ -46,12 +46,19 @@ class Settings(BaseSettings):
 
     @property
     def CORS_ORIGINS(self) -> list[str]:
-        return [
+        origins = [
             self.FRONTEND_URL,
             "http://localhost:3000",
             "http://localhost:3001",
             "http://127.0.0.1:3000",
+            "https://navora-ai-g4ec.onrender.com",
         ]
+        # Allow all Vercel preview & production domains
+        import os
+        extra = os.environ.get("EXTRA_CORS_ORIGINS", "")
+        if extra:
+            origins.extend([o.strip() for o in extra.split(",") if o.strip()])
+        return origins
 
     model_config = SettingsConfigDict(
         env_file=".env",
