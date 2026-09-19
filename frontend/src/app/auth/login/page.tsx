@@ -130,7 +130,42 @@ function LoginForm() {
               {loading ? "Authenticating..." : "Access Account"}
             </Button>
             
-            <div className="flex items-center justify-center pt-2">
+            <div className="relative flex items-center justify-center my-5">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10" />
+              </div>
+              <div className="relative bg-[#111111] px-3">
+                <span className="text-[10px] text-white/40 font-mono tracking-widest uppercase">Or Continue With</span>
+              </div>
+            </div>
+
+            {/* Social Login Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setError("Google Login: Redirecting to OAuth... (Please use Demo credentials or standard email/password while OAuth keys are initializing)");
+                }}
+                className="h-11 rounded-xl border-white/10 bg-black/50 hover:bg-white/10 text-xs text-white/90 flex items-center justify-center gap-2 transition-colors"
+              >
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
+                Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setError("GitHub Login: Redirecting to OAuth... (Please use Demo credentials or standard email/password while OAuth keys are initializing)");
+                }}
+                className="h-11 rounded-xl border-white/10 bg-black/50 hover:bg-white/10 text-xs text-white/90 flex items-center justify-center gap-2 transition-colors"
+              >
+                <img src="https://www.svgrepo.com/show/512317/github-142.svg" alt="GitHub" className="w-4 h-4 invert opacity-80" />
+                GitHub
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-center pt-3">
               <span className="text-[10px] text-white/40 font-mono tracking-widest uppercase">Quick Demo Access</span>
             </div>
 

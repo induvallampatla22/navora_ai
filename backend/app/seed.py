@@ -14,14 +14,14 @@ def seed_demo_data(db) -> None:
     from app.models.reward import CoinWallet
     from app.core.security import get_password_hash
 
-    # Ensure default verified demo user exists
+    # Ensure default verified demo users exist
     demo_user = db.query(User).filter(User.email == "demo@navora.ai").first()
     if not demo_user:
         demo_user = User(
             id="usr-demo-001",
             email="demo@navora.ai",
             phone="+15551234567",
-            hashed_password=get_password_hash("Password123!"),
+            hashed_password=get_password_hash("NavoraDemo2026!"),
             full_name="Alexander Vance",
             is_active=True,
             is_verified=True,
@@ -51,7 +51,45 @@ def seed_demo_data(db) -> None:
         )
         db.add(wallet)
         db.commit()
-        logger.info("Seeded verified demo user: demo@navora.ai / Password123!")
+        logger.info("Seeded verified demo user: demo@navora.ai / NavoraDemo2026!")
+
+    traveler_user = db.query(User).filter(User.email == "traveler@navora.ai").first()
+    if not traveler_user:
+        traveler_user = User(
+            id="usr-traveler-001",
+            email="traveler@navora.ai",
+            phone="+15559876543",
+            hashed_password=get_password_hash("NavoraDemo2026!"),
+            full_name="Elena Rostova",
+            is_active=True,
+            is_verified=True,
+            is_2fa_enabled=False
+        )
+        db.add(traveler_user)
+        db.flush()
+
+        traveler_profile = Profile(
+            user_id=traveler_user.id,
+            home_city="New York",
+            home_country="United States",
+            preferred_currency="USD",
+            preferred_language="en",
+            bio="Luxury traveler & global culinary enthusiast.",
+            travel_styles=["Luxury", "Culinary", "Adventure"],
+            dietary_preferences=[],
+            interests=["Fine Dining", "Luxury Resorts", "Beach & Sun"]
+        )
+        db.add(traveler_profile)
+
+        traveler_wallet = CoinWallet(
+            user_id=traveler_user.id,
+            balance=2500,
+            total_earned=2500,
+            total_redeemed=0
+        )
+        db.add(traveler_wallet)
+        db.commit()
+        logger.info("Seeded verified demo user: traveler@navora.ai / NavoraDemo2026!")
 
     destinations = [
 
