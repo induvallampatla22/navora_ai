@@ -40,6 +40,7 @@ from app.routers.reviews import router as reviews_router
 from app.routers.notifications import router as notifications_router
 from app.routers.profile import router as profile_router
 from app.routers.currency import router as currency_router
+from app.routers.meeting_intelligence import router as meeting_intelligence_router
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -139,6 +140,7 @@ app.include_router(reviews_router)
 app.include_router(notifications_router)
 app.include_router(profile_router)
 app.include_router(currency_router)
+app.include_router(meeting_intelligence_router)
 
 # ── Compatibility Aliases for /api/v1 and root /auth ─────────────────────────
 from fastapi import APIRouter

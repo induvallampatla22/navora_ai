@@ -17,7 +17,7 @@ class GeminiAIProvider(BaseAIProvider):
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=self.api_key)
-                self.client = genai.GenerativeModel("gemini-1.5-flash")
+                self.client = genai.GenerativeModel("gemini-flash-lite-latest")
                 logger.info("Gemini AI Provider initialized successfully in LIVE mode.")
             except Exception as e:
                 logger.warning(f"Failed to initialize live Gemini client: {e}. Falling back to smart offline orchestrator.")
@@ -35,7 +35,7 @@ class GeminiAIProvider(BaseAIProvider):
                     full_prompt += f"Context: {json.dumps(context)}\n\n"
                 full_prompt += f"User: {prompt}"
 
-                for m_name in ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash", "gemini-pro"]:
+                for m_name in ["gemini-flash-lite-latest", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-pro"]:
                     try:
                         m_instance = genai.GenerativeModel(m_name)
                         res = m_instance.generate_content(full_prompt)

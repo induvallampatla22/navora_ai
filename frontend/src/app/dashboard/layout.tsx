@@ -34,6 +34,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useI18n } from "@/lib/i18n";
 import FloatingAIAssistant from "@/components/FloatingAIAssistant";
 
 interface NavLink {
@@ -61,6 +62,7 @@ const NAV_SECTIONS: { label: string; links: NavLink[] }[] = [
     label: "AI & Intelligence",
     links: [
       { href: "/dashboard/assistant", icon: MessageSquare, text: "AI Assistant" },
+      { href: "/dashboard/meetings", icon: Activity, text: "Omi Voice & Meetings", badge: "Lyzr×Qdrant" },
       { href: "/dashboard/intelligence", icon: BarChart3, text: "Travel Intelligence" },
       { href: "/dashboard/monitor", icon: Activity, text: "Trip Monitor" },
       { href: "/dashboard/replan", icon: RefreshCw, text: "AI Replan", badge: "Live" },
@@ -93,6 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const { language, setLanguage, t } = useI18n();
 
   // Authentication guard
   useEffect(() => {
@@ -264,8 +267,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-white/70 hover:text-primary hover:border-primary/30 transition-all"
             >
               <RefreshCw className="w-3.5 h-3.5 text-primary" />
-              <span>Auto-Replan: Active</span>
+              <span>{t('aiReplan') || 'Auto-Replan: Active'}</span>
             </Link>
+            <button
+              onClick={() => setLanguage(language === 'en' ? 'te' : 'en')}
+              className="ml-2 px-2 py-1 text-xs bg-primary/15 text-primary rounded hover:bg-primary/25 transition"
+              title="Toggle Language"
+            >
+              {language === 'en' ? 'EN' : 'TE'}
+            </button>
 
             <div className="relative">
               <button

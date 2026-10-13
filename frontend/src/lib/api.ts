@@ -1,9 +1,11 @@
 import { AuthResponse } from './types';
 
-const API_BASE = 
-  typeof window === 'undefined'
-    ? (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://navora-ai-g4ec.onrender.com')
-    : (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://navora-ai-g4ec.onrender.com');
+const getApiBase = () => {
+  // Hardcoded development API endpoint for reliable local testing.
+  return 'http://127.0.0.1:8000';
+};
+
+const API_BASE = getApiBase();
 
 class ApiClient {
   private get token(): string | null {
@@ -325,6 +327,26 @@ class ApiClient {
 
   async chatWithAI(data: { query: string; language?: string; current_destination?: string; trip_id?: string }): Promise<any> {
     return this.chatAI(data.query, data.language || 'en', data.current_destination, data.trip_id);
+  }
+
+  // --- Meeting & Lecture Intelligence (Lyzr × Qdrant × Omi) ---
+  async ingestMeetingVoice(data: { transcript: string; title?: string; meeting_id?: string }): Promise<any> {
+    return this.fetch<any>('/api/meetings/ingest-voice', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async queryMeetingMemory(data: { query: string; meeting_id?: string }): Promise<any> {
+    return this.fetch<any>('/api/meetings/query-memory', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getVectorMemories(meetingId?: string): Promise<any> {
+    const q = meetingId ? `?meeting_id=${encodeURIComponent(meetingId)}` : '';
+    return this.fetch<any>(`/api/meetings/vector-memories${q}`);
   }
 }
 

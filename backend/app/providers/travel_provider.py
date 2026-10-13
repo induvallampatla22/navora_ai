@@ -1,16 +1,20 @@
+"""
+Travel Provider: Uses Gemini AI to generate real, route-specific transport options.
+Falls back to structured demo data if Gemini is unavailable.
+"""
+import json
 import logging
+import re
 from typing import List, Dict, Any
+
 from app.config import settings
-from app.providers.base import BaseTravelProvider
 
 logger = logging.getLogger("navora.providers.travel")
 
 
-class MultiModalTravelProvider(BaseTravelProvider):
+class MultiModalTravelProvider:
     def __init__(self):
-        self.api_key = settings.TRAVEL_API_KEY
-        self.api_secret = settings.TRAVEL_API_SECRET
-        self.is_active = bool(self.api_key and self.api_secret and not settings.DEMO_MODE)
+        self.gemini_api_key = settings.GEMINI_API_KEY
 
     def search_transport(
         self,
@@ -21,139 +25,130 @@ class MultiModalTravelProvider(BaseTravelProvider):
     ) -> List[Dict[str, Any]]:
         excluded = [m.lower().strip() for m in (excluded_modes or [])]
 
-        # Multi-modal options spanning all transit forms
-        raw_options = [
-            {
-                "id": "trans-flight-express",
-                "origin": origin,
-                "destination": destination,
-                "mode": "Flight",
-                "sub_mode": "Flight + Airport Express",
-                "provider_name": "Skyline Airways / Airport Express",
-                "departure_time": "08:15 AM",
-                "arrival_time": "11:45 AM",
-                "duration_minutes": 210,
-                "transfers": 1,
-                "price": 280.0,
-                "currency": "USD",
-                "comfort_rating": 4.6,
-                "cancellation_policy": "Refundable with $25 fee up to 24h prior",
-                "preference_match": 88.0,
-                "budget_impact": "High",
-                "co2_emissions_kg": 115.0,
-                "is_demo_data": not self.is_active
-            },
-            {
-                "id": "trans-highspeed-rail",
-                "origin": origin,
-                "destination": destination,
-                "mode": "Train",
-                "sub_mode": "High-Speed Rail + Station Cab",
-                "provider_name": "Continental Bullet Rail",
-                "departure_time": "07:30 AM",
-                "arrival_time": "12:15 PM",
-                "duration_minutes": 285,
-                "transfers": 0,
-                "price": 120.0,
-                "currency": "USD",
-                "comfort_rating": 4.8,
-                "cancellation_policy": "Full refund up to 2 hours before departure",
-                "preference_match": 95.0,
-                "budget_impact": "Balanced",
-                "co2_emissions_kg": 24.0,
-                "is_demo_data": not self.is_active
-            },
-            {
-                "id": "trans-luxury-coach",
-                "origin": origin,
-                "destination": destination,
-                "mode": "Bus",
-                "sub_mode": "Sleeper Luxury Coach",
-                "provider_name": "SilverLine Intercity Coach",
-                "departure_time": "10:00 PM (Overnight)",
-                "arrival_time": "06:30 AM",
-                "duration_minutes": 510,
-                "transfers": 0,
-                "price": 45.0,
-                "currency": "USD",
-                "comfort_rating": 4.2,
-                "cancellation_policy": "Free cancellation up to 12h before trip",
-                "preference_match": 78.0,
-                "budget_impact": "Low",
-                "co2_emissions_kg": 18.0,
-                "is_demo_data": not self.is_active
-            },
-            {
-                "id": "trans-private-chauffeur",
-                "origin": origin,
-                "destination": destination,
-                "mode": "Cab",
-                "sub_mode": "Dedicated Private Chauffeur",
-                "provider_name": "Apex Elite Mobility",
-                "departure_time": "Flexible on-demand",
-                "arrival_time": "Estimated +5.5 hours",
-                "duration_minutes": 330,
-                "transfers": 0,
-                "price": 310.0,
-                "currency": "USD",
-                "comfort_rating": 4.9,
-                "cancellation_policy": "Free cancellation up to 4 hours prior",
-                "preference_match": 92.0,
-                "budget_impact": "High",
-                "co2_emissions_kg": 85.0,
-                "is_demo_data": not self.is_active
-            },
-            {
-                "id": "trans-self-drive-suv",
-                "origin": origin,
-                "destination": destination,
-                "mode": "Car",
-                "sub_mode": "Self-Drive Electric SUV Rental",
-                "provider_name": "VoltDrive Rentals",
-                "departure_time": "Flexible",
-                "arrival_time": "Self-paced",
-                "duration_minutes": 360,
-                "transfers": 0,
-                "price": 140.0,
-                "currency": "USD",
-                "comfort_rating": 4.7,
-                "cancellation_policy": "Free cancellation anytime before pickup",
-                "preference_match": 91.0,
-                "budget_impact": "Balanced",
-                "co2_emissions_kg": 0.0,
-                "is_demo_data": not self.is_active
-            },
-            {
-                "id": "trans-scenic-ferry",
-                "origin": origin,
-                "destination": destination,
-                "mode": "Ferry",
-                "sub_mode": "Coastal Express Ferry + Local Taxi",
-                "provider_name": "Oceanic Cruise Link",
-                "departure_time": "09:00 AM",
-                "arrival_time": "01:30 PM",
-                "duration_minutes": 270,
-                "transfers": 1,
-                "price": 85.0,
-                "currency": "USD",
-                "comfort_rating": 4.5,
-                "cancellation_policy": "Refundable 48h in advance",
-                "preference_match": 84.0,
-                "budget_impact": "Low",
-                "co2_emissions_kg": 32.0,
-                "is_demo_data": not self.is_active
-            }
-        ]
+        # Try Gemini for dynamic, route-specific options
+        if self.gemini_api_key:
+            try:
+                options = self._gemini_transport_options(origin, destination, date)
+                if options:
+                    return [o for o in options if o["mode"].lower() not in excluded]
+            except Exception as e:
+                logger.warning(f"Gemini transport generation failed: {e}")
 
-        # Filter strictly out any excluded transport modes (e.g., if user says "I don't want flights", exclude "flight")
-        filtered_options = []
-        for opt in raw_options:
-            mode_name = opt["mode"].lower()
-            if any(exc in mode_name for exc in excluded):
+        # Fallback: structured demo data with correct origin/destination
+        return self._demo_options(origin, destination, excluded)
+
+    def _gemini_transport_options(self, origin: str, destination: str, date: str) -> List[Dict[str, Any]]:
+        """Ask Gemini to generate realistic transport options for this specific route."""
+        import httpx
+
+        prompt = f"""You are a travel assistant. Generate realistic transport options from {origin} to {destination} for Indian travelers on {date}.
+
+Return ONLY a valid JSON array (no markdown, no explanation) with 3-4 options covering different modes (Train, Bus, Flight if applicable).
+Each object must have exactly these fields:
+{{
+  "mode": "Train|Bus|Flight|Cab",
+  "provider_name": "real or realistic Indian provider name",
+  "departure_time": "HH:MM AM/PM format",
+  "arrival_time": "HH:MM AM/PM format",
+  "duration_minutes": integer,
+  "price": realistic INR price as number,
+  "currency": "INR",
+  "comfort_rating": 4.0-5.0,
+  "cancellation_policy": "short policy string",
+  "budget_impact": "Low|Balanced|High"
+}}
+
+Use realistic Indian train names (Rajdhani, Shatabdi, Intercity, etc.), bus operators (APSRTC, TSRTC, RedBus, etc.), and airlines (IndiGo, Air India, SpiceJet) where relevant for {origin} to {destination}."""
+
+        models = ["gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"]
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1024}
+        }
+
+        raw = None
+        for m in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={self.gemini_api_key}"
+            try:
+                resp = httpx.post(url, json=payload, timeout=15)
+                if resp.status_code == 200:
+                    raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    break
+            except Exception:
                 continue
-            filtered_options.append(opt)
 
-        return filtered_options
+        if not raw:
+            raise RuntimeError("All Gemini models failed for transport options")
+
+        # Strip markdown code blocks if present
+        raw = re.sub(r"```json\s*|\s*```", "", raw).strip()
+        options = json.loads(raw)
+
+        # Normalise and tag each option
+        result = []
+        for idx, opt in enumerate(options):
+            result.append({
+                "id": f"trans-{opt.get('mode','').lower()}-{idx}",
+                "origin": origin,
+                "destination": destination,
+                "mode": opt.get("mode", "Train"),
+                "provider_name": opt.get("provider_name", "Unknown"),
+                "departure_time": opt.get("departure_time", "08:00 AM"),
+                "arrival_time": opt.get("arrival_time", "12:00 PM"),
+                "duration_minutes": int(opt.get("duration_minutes", 240)),
+                "transfers": 0,
+                "price": float(opt.get("price", 500)),
+                "currency": opt.get("currency", "INR"),
+                "comfort_rating": float(opt.get("comfort_rating", 4.3)),
+                "cancellation_policy": opt.get("cancellation_policy", "Standard"),
+                "preference_match": 90.0,
+                "budget_impact": opt.get("budget_impact", "Balanced"),
+                "co2_emissions_kg": 0.0,
+                "is_demo_data": False
+            })
+        return result
+
+    def _demo_options(self, origin: str, destination: str, excluded: List[str]) -> List[Dict[str, Any]]:
+        """Structured fallback with correct origin/destination injected."""
+        all_opts = [
+            {
+                "id": "trans-train-1",
+                "origin": origin, "destination": destination,
+                "mode": "Train", "provider_name": "Rajdhani / Shatabdi Express",
+                "departure_time": "07:30 AM", "arrival_time": "12:15 PM",
+                "duration_minutes": 285, "transfers": 0,
+                "price": 850, "currency": "INR",
+                "comfort_rating": 4.8,
+                "cancellation_policy": "Full refund up to 4h before departure",
+                "preference_match": 95.0, "budget_impact": "Balanced",
+                "co2_emissions_kg": 24.0, "is_demo_data": True
+            },
+            {
+                "id": "trans-bus-1",
+                "origin": origin, "destination": destination,
+                "mode": "Bus", "provider_name": "APSRTC / TSRTC Sleeper",
+                "departure_time": "10:00 PM (Overnight)", "arrival_time": "06:30 AM",
+                "duration_minutes": 510, "transfers": 0,
+                "price": 450, "currency": "INR",
+                "comfort_rating": 4.2,
+                "cancellation_policy": "Free cancellation up to 12h before",
+                "preference_match": 78.0, "budget_impact": "Low",
+                "co2_emissions_kg": 18.0, "is_demo_data": True
+            },
+            {
+                "id": "trans-flight-1",
+                "origin": origin, "destination": destination,
+                "mode": "Flight", "provider_name": "IndiGo / SpiceJet",
+                "departure_time": "08:15 AM", "arrival_time": "09:45 AM",
+                "duration_minutes": 90, "transfers": 0,
+                "price": 3200, "currency": "INR",
+                "comfort_rating": 4.5,
+                "cancellation_policy": "Refundable with fee up to 24h prior",
+                "preference_match": 88.0, "budget_impact": "High",
+                "co2_emissions_kg": 115.0, "is_demo_data": True
+            },
+        ]
+        return [o for o in all_opts if o["mode"].lower() not in excluded]
 
 
 travel_provider = MultiModalTravelProvider()

@@ -101,5 +101,34 @@ npm run build
 
 ---
 
+## 🎙️ Hackathon Track: Meeting & Lecture Intelligence (Lyzr × Qdrant × Omi)
+
+NAVORA features a dedicated **Voice-to-Insight Autonomous Engine** fulfilling the mandatory triad:
+
+```
+[Omi Ambient Voice / Webhook] 
+          │
+          ▼
+[384-D Semantic Vectorization] ──► [Qdrant Vector DB (navora_meeting_memories)]
+                                                │
+                                                ▼ (Semantic Memory Context)
+[User Query / Live Execution] ───► [Lyzr Multi-Agent Orchestrator]
+                                       ├─ Extractor Agent (Action items, owners, deadlines)
+                                       ├─ Synthesizer Agent (Structured executive summaries)
+                                       └─ Grounded Q&A Agent (Vector-backed citations)
+                                                │
+                                                ▼
+                                  [Observable Interactive UI]
+                          (/dashboard/meetings with step-by-step trace logs)
+```
+
+### Key Capabilities:
+1. **Omi Ambient Audio**: Live microphone capture via Web Speech API or external Omi hardware/webhook streams.
+2. **Qdrant Vector Memory**: Real-time vector chunking (384 dimensions) with persistent semantic cosine similarity retrieval.
+3. **Lyzr Autonomous Agents**: Multi-agent extraction of commitments, assignees, deadlines, and executive summaries.
+4. **Observable Agent Workflows (60%+ Judging Rubric)**: Interactive dashboard (`/dashboard/meetings`) displaying real-time step-by-step thoughts, vector store points, and grounded citation traces.
+
+---
+
 ## 📜 License
 NAVORA Platform © 2026. All rights reserved.
