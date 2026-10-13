@@ -57,7 +57,17 @@ class ApiClient {
       }
     }
 
-    const text = await response.text();
+    let text = '';
+    try {
+      // Clone response to avoid stream locking issues in Next.js / browser service workers
+      text = await response.clone().text();
+    } catch {
+      try {
+        text = await response.text();
+      } catch {
+        text = '';
+      }
+    }
 
     if (!response.ok) {
       let message = '';
