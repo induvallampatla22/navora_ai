@@ -1,8 +1,22 @@
 import { AuthResponse } from './types';
 
 const getApiBase = () => {
-  // Hardcoded development API endpoint for reliable local testing.
-  return 'http://127.0.0.1:8000';
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '');
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://127.0.0.1:8000';
+    }
+    // In production on Vercel or custom domain, default to Render backend
+    return 'https://navora-ai-g4ec.onrender.com';
+  }
+  return process.env.NODE_ENV === 'production'
+    ? 'https://navora-ai-g4ec.onrender.com'
+    : 'http://127.0.0.1:8000';
 };
 
 const API_BASE = getApiBase();
