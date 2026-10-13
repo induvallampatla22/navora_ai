@@ -36,23 +36,6 @@ function LoginForm() {
       login(response);
       router.push(redirectUrl);
     } catch (err: any) {
-      // Robust demo fallback: If network/CORS fails on deployed preview, authenticate demo session seamlessly
-      if (identifier.toLowerCase().includes("traveler@navora.ai") || identifier.toLowerCase().includes("demo") || password === "NavoraDemo2026!") {
-        const demoAuth = {
-          access_token: "demo_token_" + Date.now(),
-          token_type: "bearer",
-          user: {
-            id: "user-traveler-demo",
-            email: "traveler@navora.ai",
-            full_name: "Demo Traveler",
-            role: "traveler",
-            coins: 1250
-          }
-        };
-        login(demoAuth as any);
-        router.push(redirectUrl);
-        return;
-      }
       setError(err.message || "Invalid credentials. Please verify your email/phone and password.");
     } finally {
       setLoading(false);

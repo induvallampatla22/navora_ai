@@ -88,7 +88,7 @@ export default function MeetingIntelligencePage() {
             interimChunk += event.results[i][0].transcript;
           }
         }
-        const text = (finalChunk || interimChunk).trim();
+        const text = (finalChunk + interimChunk).trim();
         if (text) {
           liveTranscriptRef.current = text;
           setTranscriptInput(text);
@@ -99,7 +99,6 @@ export default function MeetingIntelligencePage() {
         if (e.error === "no-speech") return;
         setIsRecording(false);
         activeRecordingRef.current = false;
-        setIsProcessing(false);
       };
 
       recognition.onend = () => {
@@ -112,8 +111,6 @@ export default function MeetingIntelligencePage() {
         if (text && !pipelineTriggeredRef.current) {
           pipelineTriggeredRef.current = true;
           handleRunPipeline(text);
-        } else {
-          setIsProcessing(false);
         }
       };
 
