@@ -70,52 +70,103 @@ export default function MeetingIntelligencePage() {
   const pipelineTriggeredRef = useRef(false);
   const activeRecordingRef = useRef(false);
 
+  const [micError, setMicError] = useState<string>("");
+
+  // Stable ref for handleRunPipeline so speech callbacks always call the latest version
+  const handleRunPipelineRef = useRef<(text: string) => void>(() => {});
+
   useEffect(() => {
-    if (typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = speechLang;
+    handleRunPipelineRef.current = (text: string) => handleRunPipeline(text);
+  });
 
-      recognition.onresult = (event: any) => {
-        let finalChunk = "";
-        let interimChunk = "";
-        for (let i = 0; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalChunk += event.results[i][0].transcript + " ";
-          } else {
-            interimChunk += event.results[i][0].transcript;
-          }
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = speechLang;
+    recognition.maxAlternatives = 1;
+
+    // Track how many final results we've already consumed
+    let finalizedCount = 0;
+    let accumulatedFinal = "";
+
+    recognition.onstart = () => {
+      setMicError("");
+      finalizedCount = 0;
+      accumulatedFinal = "";
+    };
+
+    recognition.onaudiostart = () => {
+      // Microphone is successfully capturing audio
+      setMicError("");
+    };
+
+    recognition.onresult = (event: any) => {
+      // Build the full transcript: accumulated finals + new finals + current interim
+      let newFinal = "";
+      let interim = "";
+      for (let i = finalizedCount; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          newFinal += event.results[i][0].transcript + " ";
+          finalizedCount = i + 1;
+        } else {
+          interim += event.results[i][0].transcript;
         }
-        const text = (finalChunk + interimChunk).trim();
-        if (text) {
-          liveTranscriptRef.current = text;
-          setTranscriptInput(text);
-        }
+      }
+      if (newFinal) {
+        accumulatedFinal += newFinal;
+      }
+      const text = (accumulatedFinal + interim).trim();
+      if (text) {
+        liveTranscriptRef.current = text;
+        setTranscriptInput(text);
+      }
+    };
+
+    recognition.onerror = (e: any) => {
+      const errMap: Record<string, string> = {
+        "not-allowed": "🎤 Microphone permission denied! Click the lock icon in your browser address bar → Allow microphone → Try again.",
+        "no-speech": "",  // silent — just no speech detected yet
+        "audio-capture": "🎤 No microphone found! Please connect a microphone and try again.",
+        "network": "🌐 Network error — check your internet connection.",
+        "aborted": "Recording was cancelled.",
+        "service-not-available": "Speech service unavailable — try Chrome or Edge browser.",
       };
-
-      recognition.onerror = (e: any) => {
-        if (e.error === "no-speech") return;
+      const msg = errMap[e.error] ?? `Speech error: ${e.error}`;
+      if (msg) {
+        setMicError(msg);
+        console.error("SpeechRecognition error:", e.error, e);
+      }
+      if (e.error !== "no-speech") {
         setIsRecording(false);
         activeRecordingRef.current = false;
-      };
+      }
+    };
 
-      recognition.onend = () => {
-        if (activeRecordingRef.current) {
-          try { recognition.start(); } catch (_) {}
-          return;
-        }
-        setIsRecording(false);
-        const text = liveTranscriptRef.current.trim();
-        if (text && !pipelineTriggeredRef.current) {
-          pipelineTriggeredRef.current = true;
-          handleRunPipeline(text);
-        }
-      };
+    recognition.onend = () => {
+      // If user is still holding the recording, auto-restart (handles Chrome's ~60s limit)
+      if (activeRecordingRef.current) {
+        try { recognition.start(); } catch (_) {}
+        return;
+      }
+      setIsRecording(false);
+      const text = liveTranscriptRef.current.trim();
+      if (text && !pipelineTriggeredRef.current) {
+        pipelineTriggeredRef.current = true;
+        handleRunPipelineRef.current(text);
+      }
+    };
 
-      recognitionRef.current = recognition;
-    }
+    recognitionRef.current = recognition;
+
+    return () => {
+      try { recognition.stop(); } catch (_) {}
+      recognitionRef.current = null;
+    };
   }, [speechLang]);
 
   const speakOutLoud = (text: string) => {
@@ -130,14 +181,25 @@ export default function MeetingIntelligencePage() {
 
   const toggleRecording = () => {
     if (!recognitionRef.current) {
-      alert("Microphone recognition is supported in Chrome, Edge, and modern browsers.");
+      setMicError("🎤 Speech Recognition not supported in this browser. Use Chrome or Edge.");
       return;
     }
+    setMicError("");
     if (isRecording) {
+      // STOP recording
       activeRecordingRef.current = false;
-      recognitionRef.current.stop();
       setIsRecording(false);
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {}
+      // Immediately run pipeline with whatever we captured
+      const text = (liveTranscriptRef.current || transcriptInput).trim();
+      if (text) {
+        pipelineTriggeredRef.current = true;
+        handleRunPipeline(text);
+      }
     } else {
+      // START recording
       try {
         liveTranscriptRef.current = "";
         pipelineTriggeredRef.current = false;
@@ -146,8 +208,10 @@ export default function MeetingIntelligencePage() {
         recognitionRef.current.lang = speechLang;
         recognitionRef.current.start();
         setIsRecording(true);
-      } catch (err) {
+      } catch (err: any) {
         setIsRecording(false);
+        activeRecordingRef.current = false;
+        setMicError(`🎤 Could not start microphone: ${err.message || "unknown error"}. Make sure no other tab is using the mic.`);
       }
     }
   };
@@ -248,6 +312,15 @@ export default function MeetingIntelligencePage() {
           </div>
         </div>
       </div>
+
+      {/* Mic Error Banner */}
+      {micError && (
+        <div className="rounded-xl bg-rose-950/60 border border-rose-500/40 px-4 py-3 text-rose-200 text-sm flex items-center gap-3 animate-in fade-in">
+          <span className="shrink-0 text-lg">⚠️</span>
+          <span>{micError}</span>
+          <button onClick={() => setMicError("")} className="ml-auto text-rose-400 hover:text-rose-200 text-xs font-semibold">✕</button>
+        </div>
+      )}
 
       {/* Main Grid: Input & Execution */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
